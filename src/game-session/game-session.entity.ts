@@ -1,0 +1,24 @@
+// src/game-session/game-session.entity.ts
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { GameSessionUser } from './game-session-user.entity';
+
+@Entity()
+export class GameSession {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  startTime: Date;
+
+  @Column()
+  endTime: Date;
+
+  @Column({ nullable: true })
+  winningNumber: number;
+
+  @Column({ default: false })
+  isActive: boolean;
+
+  @OneToMany(() => GameSessionUser, gameSessionUser => gameSessionUser.gameSession)
+  users: GameSessionUser[];
+}

@@ -8,10 +8,12 @@ import { GameSessionController } from './game-session.controller';
 import { UserModule } from '../user/user.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from 'src/auth/auth.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([GameSession, GameSessionUser]),
+    ScheduleModule.forRoot(),
     UserModule,
     ConfigModule,
     AuthModule,

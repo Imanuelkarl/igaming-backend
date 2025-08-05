@@ -1,5 +1,5 @@
 // src/game-session/game-session.controller.ts
-import { Controller, Get, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Param } from '@nestjs/common';
 import { GameSessionService } from './game-session.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import express from 'express';
@@ -12,37 +12,65 @@ export class GameSessionController {
   @UseGuards(JwtAuthGuard)
   @Get('active')
   async getActiveSession() {
-    const session = await this.gameSessionService.getActiveSession();
+    const session = await this.gameSessionService.getAllActiveSessions();
     if (!session) {
       return { message: 'No active session available' };
     }
     
-    const timeLeft = Math.max(0, new Date(session.endTime).getTime() - new Date().getTime());
+    
     
     return {
-      ...session,
-      timeLeft,
+      session
     };
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('join')
-  async joinSession(@GetUser() req : any  , @Body() body: { selectedNumber: number }) {
+  async joinSession(@GetUser() req : any  , @Body() body: { selectedNumber: number , sessionId : number }) {
     const userId = req.sub;
-    return this.gameSessionService.joinSession(userId, body.selectedNumber);
+    return this.gameSessionService.joinSession(userId, body.selectedNumber , body.sessionId);
+  }
+
+  /*@UseGuards(JwtAuthGuard)
+  @Post('create')
+  async createSession(@Body() body: { selectedNumber: number }) {
+    return this.gameSessionService.createSession(body.selectedNumber);
+  }*/
+
+  @UseGuards(JwtAuthGuard)
+  @Get('all')
+  async getAllSessions() {
+    return this.gameSessionService.getAllSessions();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('all-active')
+  async getAllActiveSessions() {
+    return this.gameSessionService.getAllActiveSessions();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('/:id')
+  async findSessionById(@Param('id') id: number) {
+    return this.gameSessionService.getSessionById(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('leave')
-  async leaveSession(@GetUser() req: any) {
+  async leaveSession(@GetUser() req: any,@Body() body :{ sessionId : number}) {
     const userId = req.sub;
-    return this.gameSessionService.leaveSession(userId);
+    return this.gameSessionService.leaveSession(userId, body.sessionId);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('top-players')
   async getTopPlayers() {
     return this.gameSessionService.getTopPlayers();
+  }
+  @UseGuards(JwtAuthGuard)
+  @Post('create')
+  async createSession(@GetUser() req: any, @Body() body: { selectedNumber: number }) {
+    const userId = req.sub;
+    return this.gameSessionService.createNewSession(userId, body.selectedNumber);
   }
 
   @UseGuards(JwtAuthGuard)

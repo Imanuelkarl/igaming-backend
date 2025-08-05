@@ -7,6 +7,7 @@ import { GameSessionUser } from './game-session-user.entity';
 import { User } from '../user/user.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
+import { get } from 'http';
 
 @Injectable()
 export class GameSessionService implements OnModuleInit {
@@ -25,51 +26,56 @@ export class GameSessionService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    await this.ensureActiveSession();
-  }
-
-  @Cron(CronExpression.EVERY_30_SECONDS)
-  async handleSessionCycle() {
-    const activeSession = await this.getActiveSession();
-    if (activeSession) {
-      // End current session
-      activeSession.isActive = false;
-      await this.gameSessionRepository.save(activeSession);
-      
-      // Determine winners
-      await this.determineWinners(activeSession.id);
-    }
     
-    // Start new session
-    await this.createNewSession();
   }
 
-  async createNewSession() {
+ @Cron(CronExpression.EVERY_5_SECONDS)
+  async handleSessionCycle() {
+    try {
+      
+      const allActiveSessions = await this.getAllActiveSessions();
+      
+      for (const session of allActiveSessions) {
+        const differenceInSeconds = (new Date().getTime() - new Date(session.startTime).getTime()) / 1000;
+        if (differenceInSeconds >300) {
+          // End session if time is up
+          console.log("times up");
+          session.isActive = false;
+          await this.gameSessionRepository.save(session);
+          
+          // Determine winners
+          await this.determineWinners(session.id);
+          console.log(`Session ${session.id} ended and winners determined`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in session cycle handler:', error);
+    }
+  }
+
+  async createNewSession( creatorId: number, selectedNumber: number) {
     const now = new Date();
-    const endTime = new Date(now.getTime() + 20000); // 20 seconds
+    
+    const endTime = new Date(now.getTime() + 300000); // 300 seconds
     
     const newSession = this.gameSessionRepository.create({
       startTime: now,
       endTime,
+      creatorId: creatorId,
       isActive: true,
     });
-    
-    return this.gameSessionRepository.save(newSession);
+    const activeSession = await this.gameSessionRepository.save(newSession);
+    await this.joinSession(creatorId, selectedNumber , activeSession.id); // Automatically join creator with number 0
+    return activeSession;
   }
-
-  async getActiveSession() {
-    const now = new Date();
+  async getSessionById(sessionId: number) {
     return this.gameSessionRepository.findOne({
-      where: {
-        startTime: LessThan(now),
-        endTime: MoreThan(now),
-        isActive: true,
-      },
+      where: { id: sessionId },
       relations: ['users', 'users.user'],
     });
   }
 
-  async joinSession(userId: number, selectedNumber: number) {
+  async joinSession(userId: number, selectedNumber: number, sessionId?: number) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     
     // Check if user is already in an active session
@@ -84,7 +90,7 @@ export class GameSessionService implements OnModuleInit {
       throw new Error('User already in an active session');
     }
     
-    const activeSession = await this.getActiveSession();
+    const activeSession = await this.getSessionById(sessionId || 0) ;
     if (!activeSession) {
       throw new Error('No active session available');
     }
@@ -98,20 +104,20 @@ export class GameSessionService implements OnModuleInit {
       throw new Error('Session is full');
     }
     
-    const isCreator = playerCount === 0;
+    
     
     const participation = this.gameSessionUserRepository.create({
       user: user || undefined,
       gameSession: activeSession,
       selectedNumber,
-      isCreator,
+      
     });
     
     return this.gameSessionUserRepository.save(participation);
   }
 
-  async leaveSession(userId: number) {
-    const activeSession = await this.getActiveSession();
+  async leaveSession(userId: number , sessionId?: number) {
+    const activeSession = await this.getSessionById(sessionId || 0);
     if (!activeSession) {
       throw new Error('No active session available');
     }
@@ -182,6 +188,23 @@ export class GameSessionService implements OnModuleInit {
     
     return winners;
   }
+  async getAllSessions() {
+    return this.gameSessionRepository.find({
+      order: { startTime: 'DESC' },
+      relations: ['users', 'users.user'],
+    });
+  }
+  
+  async getAllActiveSessions() {
+    const now = new Date();
+    return this.gameSessionRepository.find({
+      where: {
+        
+        isActive: true,
+      },
+      relations: ['users', 'users.user'],
+    });
+  }
 
   async getTopPlayers(limit: number = 10) {
     return this.userRepository.find({
@@ -208,10 +231,5 @@ export class GameSessionService implements OnModuleInit {
     return this.gameSessionRepository.query(query);
   }
 
-  private async ensureActiveSession() {
-    const activeSession = await this.getActiveSession();
-    if (!activeSession) {
-      await this.createNewSession();
-    }
-  }
+ 
 }

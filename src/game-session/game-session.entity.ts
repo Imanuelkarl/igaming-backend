@@ -19,6 +19,9 @@ export class GameSession {
   @Column({ default: false })
   isActive: boolean;
 
+  @Column({ nullable: true })
+  creatorId: number;
+
   @OneToMany(() => GameSessionUser, gameSessionUser => gameSessionUser.gameSession)
   users: GameSessionUser[];
 }

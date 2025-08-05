@@ -13,14 +13,18 @@ export class GameSession {
   @Column()
   endTime: Date;
 
+  @Column({ default: 30})
+  span: number;
+
   @Column({ nullable: true })
   winningNumber: number;
 
-  @Column({ default: false })
-  isActive: boolean;
-
   @Column({ nullable: true })
   creatorId: number;
+
+  @Column( {default : "isActive"})
+  state: string;
+
 
   @OneToMany(() => GameSessionUser, gameSessionUser => gameSessionUser.gameSession)
   users: GameSessionUser[];

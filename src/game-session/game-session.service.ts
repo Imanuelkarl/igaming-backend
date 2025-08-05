@@ -1,7 +1,7 @@
 // src/game-session/game-session.service.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, LessThan, Between, Not } from 'typeorm';
+import { Repository, MoreThan, LessThan, Between, Not, In } from 'typeorm';
 import { GameSession } from './game-session.entity';
 import { GameSessionUser } from './game-session-user.entity';
 import { User } from '../user/user.entity';
@@ -40,7 +40,7 @@ export class GameSessionService implements OnModuleInit {
         if (differenceInSeconds >300) {
           // End session if time is up
           console.log("times up");
-          session.isActive = false;
+          session.state = "ended";
           await this.gameSessionRepository.save(session);
           
           // Determine winners
@@ -52,8 +52,28 @@ export class GameSessionService implements OnModuleInit {
       console.error('Error in session cycle handler:', error);
     }
   }
+  async getCurrentSessionForUser(userId: number) {
+  const participation = await this.gameSessionUserRepository.findOne({
+    where: {
+      user: { id: userId },
+      gameSession: {
+        state: In(['active', 'waiting']), // Only include ongoing sessions
+      },
+    },
+    relations: ['gameSession', 'gameSession.users', 'gameSession.users.user'],
+  });
+  console.log(participation);
+  console.log("Helo world");
 
-  async createNewSession( creatorId: number, selectedNumber: number) {
+  if (!participation) {
+    return null; // Or throw an error if preferred
+  }
+
+  return participation.gameSession;
+}
+
+
+  async createNewSession( creatorId: number) {
     const now = new Date();
     
     const endTime = new Date(now.getTime() + 300000); // 300 seconds
@@ -62,10 +82,10 @@ export class GameSessionService implements OnModuleInit {
       startTime: now,
       endTime,
       creatorId: creatorId,
-      isActive: true,
+      state: 'waiting',
     });
     const activeSession = await this.gameSessionRepository.save(newSession);
-    await this.joinSession(creatorId, selectedNumber , activeSession.id); // Automatically join creator with number 0
+    await this.joinSession(creatorId,0, activeSession.id); // Automatically join creator with number 0
     return activeSession;
   }
   async getSessionById(sessionId: number) {
@@ -74,6 +94,34 @@ export class GameSessionService implements OnModuleInit {
       relations: ['users', 'users.user'],
     });
   }
+  async selectNumber(userId: number, selectedNumber: number, sessionId: number) {
+  // Step 1: Find the user's participation in the session
+  const participation = await this.gameSessionUserRepository.findOne({
+    where: {
+      user: { id: userId },
+      gameSession: { id: sessionId },
+    },
+    relations: ['gameSession'],
+  });
+
+  if (!participation) {
+    throw new Error('User is not part of the specified session');
+  }
+
+  // Step 2: Check if the session is still in a modifiable state
+  /*if (participation.gameSession.state !== 'waiting') {
+    throw new Error('Cannot change number. Game has already started');
+  }*/
+
+  // Step 3: Update selected number
+  participation.selectedNumber = selectedNumber;
+  await this.gameSessionUserRepository.save(participation);
+
+  return {
+    message: 'Number selection updated successfully',
+    selectedNumber,
+  };
+}
 
   async joinSession(userId: number, selectedNumber: number, sessionId?: number) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -82,7 +130,7 @@ export class GameSessionService implements OnModuleInit {
     const existingParticipation = await this.gameSessionUserRepository.findOne({
       where: {
         user: { id: userId },
-        gameSession: { isActive: true },
+        gameSession: { state: ("active") },
       },
     });
     
@@ -116,6 +164,7 @@ export class GameSessionService implements OnModuleInit {
     return this.gameSessionUserRepository.save(participation);
   }
 
+
   async leaveSession(userId: number , sessionId?: number) {
     const activeSession = await this.getSessionById(sessionId || 0);
     if (!activeSession) {
@@ -135,6 +184,19 @@ export class GameSessionService implements OnModuleInit {
     
     await this.gameSessionUserRepository.remove(participation);
     return true;
+  }
+  async startGame(sessionId: number) {
+    const session = await this.getSessionById(sessionId);
+    
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    session.state = 'active';
+    session.startTime = new Date(); // Optional: Reset startTime if needed
+
+    await this.gameSessionRepository.save(session);
+    return session;
   }
 
   async determineWinners(sessionId: number) {
@@ -200,7 +262,17 @@ export class GameSessionService implements OnModuleInit {
     return this.gameSessionRepository.find({
       where: {
         
-        isActive: true,
+        state: 'active',
+      },
+      relations: ['users', 'users.user'],
+    });
+  }
+  async getAllWaitingSessions() {
+    const now = new Date();
+    return this.gameSessionRepository.find({
+      where: {
+        
+        state: 'waiting',
       },
       relations: ['users', 'users.user'],
     });

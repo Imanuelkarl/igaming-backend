@@ -1,5 +1,5 @@
 // src/game-session/game-session.controller.ts
-import { Controller, Get, Post, Body, UseGuards, Req, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Param, Put } from '@nestjs/common';
 import { GameSessionService } from './game-session.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import express from 'express';
@@ -12,7 +12,7 @@ export class GameSessionController {
   @UseGuards(JwtAuthGuard)
   @Get('active')
   async getActiveSession() {
-    const session = await this.gameSessionService.getAllActiveSessions();
+    const session = await this.gameSessionService.getAllWaitingSessions();
     if (!session) {
       return { message: 'No active session available' };
     }
@@ -54,6 +54,12 @@ export class GameSessionController {
   async findSessionById(@Param('id') id: number) {
     return this.gameSessionService.getSessionById(id);
   }
+  @UseGuards(JwtAuthGuard)
+  @Get('my-session')
+  async getMySession(@GetUser() req :any){
+    console.log("Try");
+    return this.gameSessionService.getCurrentSessionForUser(req.sub);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post('leave')
@@ -66,11 +72,18 @@ export class GameSessionController {
   async getTopPlayers() {
     return this.gameSessionService.getTopPlayers();
   }
+
   @UseGuards(JwtAuthGuard)
   @Post('create')
-  async createSession(@GetUser() req: any, @Body() body: { selectedNumber: number }) {
+  async createSession(@GetUser() req: any) {
     const userId = req.sub;
-    return this.gameSessionService.createNewSession(userId, body.selectedNumber);
+    return this.gameSessionService.createNewSession(userId);
+  }
+  @UseGuards(JwtAuthGuard)
+  @Put('select-number')
+  async selectNumber(@GetUser() req: any, @Body() body: { selectedNumber: number , sessionId: number }) {
+    const userId = req.sub;
+    return this.gameSessionService.selectNumber(userId,body.selectedNumber,body.sessionId);
   }
 
   @UseGuards(JwtAuthGuard)

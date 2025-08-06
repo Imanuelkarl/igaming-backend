@@ -36,8 +36,9 @@ export class GameSessionService implements OnModuleInit {
       const allActiveSessions = await this.getAllActiveSessions();
       
       for (const session of allActiveSessions) {
+        console.log("checking...");
         const differenceInSeconds = (new Date().getTime() - new Date(session.startTime).getTime()) / 1000;
-        if (differenceInSeconds >300) {
+        if (differenceInSeconds >session.span-5) {
           // End session if time is up
           console.log("times up");
           session.state = "ended";
@@ -81,6 +82,7 @@ export class GameSessionService implements OnModuleInit {
     const newSession = this.gameSessionRepository.create({
       startTime: now,
       endTime,
+      span: 20,
       creatorId: creatorId,
       state: 'waiting',
     });
@@ -166,7 +168,7 @@ export class GameSessionService implements OnModuleInit {
 
 
   async leaveSession(userId: number , sessionId?: number) {
-    const activeSession = await this.getSessionById(sessionId || 0);
+    let activeSession = await this.getSessionById(sessionId || 0);
     if (!activeSession) {
       throw new Error('No active session available');
     }
@@ -177,12 +179,19 @@ export class GameSessionService implements OnModuleInit {
         gameSession: { id: activeSession.id },
       },
     });
+    if(activeSession.state === "active"){
+      throw new Error('Game Has Started Already');
+    }
     
     if (!participation) {
       throw new Error('User not in this session');
     }
     
     await this.gameSessionUserRepository.remove(participation);
+    activeSession =await this.getSessionById(sessionId || 0);
+    if(activeSession?.users.length===0){
+      activeSession.state = "ended";
+    }
     return true;
   }
   async startGame(sessionId: number) {
@@ -210,7 +219,7 @@ export class GameSessionService implements OnModuleInit {
     }
     
     // Pick random winning number (1-9)
-    const winningNumber = Math.floor(Math.random() * 9) + 1;
+    const winningNumber = 2;//Math.floor(Math.random() * 9) + 1;
     session.winningNumber = winningNumber;
     await this.gameSessionRepository.save(session);
     

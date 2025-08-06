@@ -6,7 +6,7 @@ async function bootstrap() {
 
   // ✅ Enable CORS
   app.enableCors({
-    origin: ['http://localhost:5173','imanuelkarl.github.io', 'https://igame-projects.netlify.app/'], // 👈 frontend URL (React, Angular, etc.)
+    origin: ['http://localhost:5173','imanuelkarl.github.io', 'https://igame-projects.netlify.app'], // 👈 frontend URL (React, Angular, etc.)
     credentials: true,               // 👈 if you're using cookies or auth headers
   });
 

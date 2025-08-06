@@ -219,7 +219,7 @@ export class GameSessionService implements OnModuleInit {
     }
     
     // Pick random winning number (1-9)
-    const winningNumber = 2;//Math.floor(Math.random() * 9) + 1;
+    const winningNumber = Math.floor(Math.random() * 9) + 1;
     session.winningNumber = winningNumber;
     await this.gameSessionRepository.save(session);
     

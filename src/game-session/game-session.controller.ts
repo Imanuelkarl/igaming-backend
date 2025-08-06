@@ -50,12 +50,12 @@ export class GameSessionController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('/:id')
+  @Get('/sessions/:id')
   async findSessionById(@Param('id') id: number) {
     return this.gameSessionService.getSessionById(id);
   }
   @UseGuards(JwtAuthGuard)
-  @Get('my-session')
+  @Get('/my-session')
   async getMySession(@GetUser() req :any){
     console.log("Try");
     return this.gameSessionService.getCurrentSessionForUser(req.sub);

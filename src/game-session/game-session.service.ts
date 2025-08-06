@@ -130,7 +130,7 @@ export class GameSessionService implements OnModuleInit {
     const existingParticipation = await this.gameSessionUserRepository.findOne({
       where: {
         user: { id: userId },
-        gameSession: { state: ("active") },
+        gameSession: { state: In(["active","waiting"] )},
       },
     });
     

@@ -6,7 +6,7 @@ async function bootstrap() {
 
   const allowedOrigins = [
   'http://localhost:5173',
-  'https://your-netlify-app.netlify.app',
+  'https://igame-projects.netlify.app',
   'https://imanuelkarl.gitub.io'
 ];
   // ✅ Enable CORS
